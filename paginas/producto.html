@@ -76,40 +76,327 @@
     </section>
 
     <!-- Loan Calculator Section -->
-    <section id="loans" class="loans">
-        <div class="container">
-            <div class="loan-calculator">
-                <h2>Calculadora de Préstamos</h2>
-                <div class="calculator-grid">
-                    <div class="calculator-inputs">
-                        <div class="input-group">
-                            <label for="loanAmount">Monto del préstamo</label>
-                            <input type="number" id="loanAmount" placeholder="10000">
-                        </div>
-                        <div class="input-group">
-                            <label for="loanTerm">Plazo (meses)</label>
-                            <select id="loanTerm">
-                                <option value="12">12 meses</option>
-                                <option value="24">24 meses</option>
-                                <option value="36">36 meses</option>
-                                <option value="48">48 meses</option>
-                                <option value="60">60 meses</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label for="interestRate">Tasa de interés anual (%)</label>
-                            <input type="number" id="interestRate" value="12">
-                        </div>
-                    </div>
-                    <div class="loan-result">
-                        <h3>Cuota Mensual Estimada</h3>
-                        <div id="monthly-payment">$ 0.00</div>
-                        <div id="loan-info"></div>
-                    </div>
-                </div>
+    <head><base href="." /><script src="https://code.jquery.com/jquery-3.6.0.min.js"></script><script src="https://cdn.tailwindcss.com"></script><style>
+        .calculator {
+          background: linear-gradient(145deg, #2c3e50, #3498db);
+          border-radius: 15px;
+          padding: 2rem;
+          box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+          color: white;
+          margin-bottom: 2rem;
+        }
+        
+        .input-group {
+          margin: 1rem 0;
+          transition: all 0.3s ease;
+        }
+        
+        input, select {
+          background: rgba(255,255,255,0.1);
+          border: 2px solid rgba(255,255,255,0.2);
+          border-radius: 8px;
+          padding: 0.5rem;
+          color: white;
+          transition: all 0.3s ease;
+        }
+      
+        input[type="range"] {
+          width: 100%;
+          height: 8px;
+          border-radius: 5px;
+          background: rgba(255,255,255,0.2);
+          outline: none;
+          -webkit-appearance: none;
+        }
+      
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 20px;
+          height: 20px;
+          background: #e74c3c;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+      
+        input[type="range"]::-webkit-slider-thumb:hover {
+          background: #c0392b;
+          transform: scale(1.1);
+        }
+        
+        input:focus, select:focus {
+          background: rgba(255,255,255,0.2);
+          border-color: #e74c3c;
+          outline: none;
+        }
+        
+        button {
+          background: #e74c3c;
+          border: none;
+          padding: 0.8rem 2rem;
+          border-radius: 8px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        
+        button:hover {
+          background: #c0392b;
+          transform: translateY(-2px);
+        }
+        
+        .result {
+          background: rgba(0,0,0,0.2);
+          padding: 1rem;
+          border-radius: 8px;
+          margin-top: 1rem;
+        }
+        
+        .payment-schedule {
+          max-height: 300px;
+          overflow-y: auto;
+        }
+        
+        .animate-fade {
+          animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      
+        .amount-display {
+          font-size: 1.2rem;
+          font-weight: bold;
+          text-align: center;
+          margin-top: 0.5rem;
+        }
+      </style>
+      <script>
+      function updateAmountDisplay() {
+        const amount = document.getElementById('loanAmount').value;
+        document.getElementById('amountDisplay').textContent = formatCurrency(amount);
+      }
+      
+      function calculateLoan() {
+        const amount = parseFloat(document.getElementById('loanAmount').value);
+        const terms = parseInt(document.getElementById('loanTerm').value);
+        const annualRate = parseFloat(document.getElementById('interestRate').value);
+        const amortizationType = document.getElementById('amortizationType').value;
+        
+        if (!amount || !terms || !annualRate) {
+          alert('Por favor complete todos los campos');
+          return;
+        }
+      
+        if (amount < 100000) {
+          alert('El monto mínimo del préstamo debe ser de $100,000');
+          return;
+        }
+        
+        const monthlyRate = annualRate / 12 / 100;
+        let monthlyPayment, totalPayment, totalInterest;
+        const schedule = [];
+        
+        if (amortizationType === 'french') {
+          monthlyPayment = amount * (monthlyRate * Math.pow(1 + monthlyRate, terms)) / 
+                           (Math.pow(1 + monthlyRate, terms) - 1);
+          
+          let remainingBalance = amount;
+          for (let month = 1; month <= terms; month++) {
+            const interest = remainingBalance * monthlyRate;
+            const principal = monthlyPayment - interest;
+            remainingBalance -= principal;
+            
+            schedule.push({
+              month,
+              payment: monthlyPayment,
+              principal,
+              interest,
+              balance: remainingBalance
+            });
+          }
+        } else {
+          const principalPayment = amount / terms;
+          let remainingBalance = amount;
+          
+          for (let month = 1; month <= terms; month++) {
+            const interest = remainingBalance * monthlyRate;
+            const payment = principalPayment + interest;
+            remainingBalance -= principalPayment;
+            
+            schedule.push({
+              month,
+              payment,
+              principal: principalPayment,
+              interest,
+              balance: remainingBalance
+            });
+          }
+          
+          monthlyPayment = schedule[0].payment;
+        }
+        
+        totalPayment = schedule.reduce((sum, payment) => sum + payment.payment, 0);
+        totalInterest = totalPayment - amount;
+        
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('monthlyPayment').textContent = formatCurrency(monthlyPayment);
+        document.getElementById('totalPayment').textContent = formatCurrency(totalPayment);
+        document.getElementById('totalInterest').textContent = formatCurrency(totalInterest);
+        
+        const tbody = document.getElementById('paymentSchedule').querySelector('tbody');
+        tbody.innerHTML = '';
+        
+        schedule.forEach(payment => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${payment.month}</td>
+            <td class="text-right">${formatCurrency(payment.payment)}</td>
+            <td class="text-right">${formatCurrency(payment.principal)}</td>
+            <td class="text-right">${formatCurrency(payment.interest)}</td>
+            <td class="text-right">${formatCurrency(payment.balance)}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+      
+      async function convertCurrency() {
+        const amount = parseFloat(document.getElementById('currencyAmount').value);
+        const fromCurrency = document.getElementById('fromCurrency').value;
+        
+        if (!amount) {
+          alert('Por favor ingrese un monto');
+          return;
+        }
+      
+        try {
+          const rates = {
+            USD: 1010, // Dólar blue
+            EUR: 1100  // Euro blue aproximado
+          };
+      
+          const result = amount * rates[fromCurrency];
+          
+          document.getElementById('conversionResult').classList.remove('hidden');
+          document.getElementById('convertedAmount').textContent = 
+            `${formatCurrency(amount, fromCurrency)} = ${formatCurrency(result, 'ARS')}`;
+          
+          document.getElementById('rateDisclaimer').textContent = 
+            `Cotización ${fromCurrency === 'USD' ? 'Dólar Blue' : 'Euro Blue'}: ${formatCurrency(rates[fromCurrency], 'ARS')}`;
+        } catch (error) {
+          alert('Error al convertir la moneda');
+        }
+      }
+      
+      function formatCurrency(value, currency = 'ARS') {
+        const currencyFormats = {
+          ARS: 'es-AR',
+          USD: 'en-US',
+          EUR: 'de-DE'
+        };
+        
+        return new Intl.NumberFormat(currencyFormats[currency], {
+          style: 'currency',
+          currency: currency
+        }).format(value);
+      }
+      </script>
+      </head><body class="bg-gray-100 min-h-screen p-8">
+      
+      <div class="max-w-3xl mx-auto">
+        <div class="calculator">
+          <h1 class="text-3xl font-bold mb-6">Calculadora de Préstamos en Pesos Argentinos 🇦🇷</h1>
+          
+          <div class="input-group">
+            <label>Monto del Préstamo (ARS) - Mínimo $100,000</label>
+            <input type="range" id="loanAmount" class="w-full" min="100000" max="10000000" step="10000" value="100000" oninput="updateAmountDisplay()">
+            <div id="amountDisplay" class="amount-display">$100,000</div>
+          </div>
+          
+          <div class="input-group">
+            <label>Plazo (meses)</label>
+            <input type="number" id="loanTerm" class="w-full" placeholder="Ej: 12">
+          </div>
+          
+          <div class="input-group">
+            <label>Tasa de Interés Anual (%)</label>
+            <input type="number" id="interestRate" class="w-full" placeholder="Ej: 75">
+          </div>
+          
+          <div class="input-group">
+            <label>Sistema de Amortización</label>
+            <select id="amortizationType" class="w-full">
+              <option value="french">Sistema Francés (cuotas fijas)</option>
+              <option value="german">Sistema Alemán (amortización constante)</option>
+            </select>
+          </div>
+          
+          <button onclick="calculateLoan()" class="mt-4">Calcular</button>
+          
+          <div id="results" class="result hidden animate-fade">
+            <h2 class="text-xl font-bold mb-4">Resumen del Préstamo</h2>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p>Cuota Mensual:</p>
+                <p id="monthlyPayment" class="font-bold"></p>
+              </div>
+              <div>
+                <p>Total a Pagar:</p>
+                <p id="totalPayment" class="font-bold"></p>
+              </div>
+              <div>
+                <p>Total Intereses:</p>
+                <p id="totalInterest" class="font-bold"></p>
+              </div>
             </div>
+            
+            <h3 class="text-lg font-bold mt-6 mb-2">Cronograma de Pagos</h3>
+            <div class="payment-schedule">
+              <table class="w-full" id="paymentSchedule">
+                <thead>
+                  <tr>
+                    <th class="text-left">Mes</th>
+                    <th class="text-right">Cuota</th>
+                    <th class="text-right">Capital</th>
+                    <th class="text-right">Interés</th>
+                    <th class="text-right">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-    </section>
+      
+        <!-- Calculadora de divisas actualizada -->
+        <div class="calculator">
+          <h1 class="text-3xl font-bold mb-6">Convertidor de Divisas a ARS (Blue) 💱</h1>
+          
+          <div class="input-group">
+            <label>Monto</label>
+            <input type="number" id="currencyAmount" class="w-full" placeholder="Ingrese el monto">
+          </div>
+          
+          <div class="input-group">
+            <label>Moneda</label>
+            <select id="fromCurrency" class="w-full">
+              <option value="USD">Dólar Estadounidense (USD)</option>
+              <option value="EUR">Euro (EUR)</option>
+            </select>
+          </div>
+          
+          <button onclick="convertCurrency()" class="mt-4">Convertir</button>
+          
+          <div id="conversionResult" class="result hidden animate-fade">
+            <h2 class="text-xl font-bold mb-4">Resultado de la Conversión</h2>
+            <p id="convertedAmount" class="text-2xl font-bold"></p>
+            <p id="rateDisclaimer" class="text-sm mt-2"></p>
+            <p class="text-sm mt-2">*Cotizaciones aproximadas del mercado paralelo</p>
+          </div>
+        </div>
+      </div>
 
     <!-- International Payments Section -->
     <section id="international" class="international">
